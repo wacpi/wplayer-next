@@ -481,9 +481,19 @@ class WPlayer {
 
     this.on('timeupdate', () => {
       if (!this.moveBar) {
-        this.bar.set('played', this.video.currentTime / this.video.duration, 'width');
+        const d = this.video.duration;
+        let playedPct = 0;
+        if (Number.isFinite(d) && d > 0) {
+          // 片尾 ended 后 currentTime 常略小于 duration，会把进度条从 100% 拉回 —— 以 ended 为准拉满
+          playedPct = this.video.ended ? 1 : this.video.currentTime / d;
+        }
+        this.bar.set('played', playedPct, 'width');
       }
-      const currentTime = utils.secondToTime(this.video.currentTime);
+      const timeForLabel =
+        this.video.ended && Number.isFinite(this.video.duration) && this.video.duration > 0
+          ? this.video.duration
+          : this.video.currentTime;
+      const currentTime = utils.secondToTime(timeForLabel);
       if (this.template.ptime.innerHTML !== currentTime) {
         this.template.ptime.innerHTML = currentTime;
       }
