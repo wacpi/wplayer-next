@@ -169,6 +169,7 @@
             </div>
           </div>
           <div class="wplayer-setting-item wplayer-setting-subtitles-entry wplayer-subtitles-setting-disabled" role="button" tabindex="-1">
+            <span class="wplayer-setting-subtitles-entry-icon" aria-hidden="true"><span class="wplayer-icon-content">{{@ icons.subtitles }}</span></span>
             <span class="wplayer-setting-subtitles-entry-label"></span>
             <span class="wplayer-setting-subtitles-entry-right">
               <span class="wplayer-setting-subtitles-entry-value"></span>
