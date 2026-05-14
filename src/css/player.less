@@ -134,6 +134,11 @@
       opacity: 0;
       transform: translateY(100%);
     }
+
+    [data-balloon]::before,
+    [data-balloon]::after {
+      display: none !important;
+    }
   }
 
   &.wplayer-show-controller {
