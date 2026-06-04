@@ -106,6 +106,7 @@ class Setting {
   }
 
   hide() {
+    clearTimeout(this._autoHideTimer);
     if (this.player.subtitle && this.player.subtitle.onSettingsHide) {
       this.player.subtitle.onSettingsHide();
     }
@@ -125,6 +126,16 @@ class Setting {
     this.player.template.mask.classList.add('wplayer-mask-show');
 
     this.player.controller.disableAutoHide = true;
+    this._resetAutoHideTimer();
+  }
+
+  /** 设置面板打开后如果用户不交互，8 秒后自动隐藏 */
+  _resetAutoHideTimer() {
+    var self = this;
+    clearTimeout(this._autoHideTimer);
+    this._autoHideTimer = setTimeout(function () {
+      self.hide();
+    }, 8000);
   }
 }
 
