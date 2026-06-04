@@ -106,6 +106,10 @@ class Subtitle {
 
     /** 字幕背景开关 */
     this.subtitleBgEnabled = readSubtitleBgPreference();
+    this._bgStyleEl = null;
+    this._cueOverlay = null;
+    this._cueOverlayInner = null;
+    this._cueChangeHandler = null;
     this.syncSubtitleBg();
 
     if (this.quickButton) {
@@ -194,9 +198,114 @@ class Subtitle {
   }
 
   syncSubtitleBg() {
-    if (!this.player.video) return;
-    this.player.video.style.setProperty('--wplayer-subtitle-bg',
-      this.subtitleBgEnabled ? 'rgba(0, 0, 0, 0.72)' : 'transparent');
+    this._applySubtitleBgMode();
+  }
+
+  /**
+   * 字幕背景开关：
+   *   - 更新 ::cue 样式（降级备选）
+   *   - 更新覆盖层内层 class（主线方案，背景仅包裹文字）
+   */
+  _applySubtitleBgMode() {
+    var video = this.player && this.player.video;
+    if (!video) return;
+
+    var container = this.player.container;
+    if (!container) return;
+
+    var id = 'wplayer-subtitle-bg-style-' + (this.player.index || 0);
+    var el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('style');
+      el.id = id;
+      el.type = 'text/css';
+      container.appendChild(el);
+    }
+
+    if (this.subtitleBgEnabled) {
+      el.textContent = 'video.wplayer-video-current::cue { background: rgba(0,0,0,0.72) !important; }';
+    } else {
+      el.textContent = 'video.wplayer-video-current::cue { background: transparent !important; }';
+    }
+    this._bgStyleEl = el;
+
+    // 覆盖层内层背景同步（inline-block 仅包裹文字）
+    if (this._cueOverlayInner) {
+      this._cueOverlayInner.classList.toggle('wplayer-subtitle-cue-inner-bg', this.subtitleBgEnabled);
+    }
+  }
+
+  _removeBgStyleEl() {
+    var id = 'wplayer-subtitle-bg-style-' + (this.player.index || 0);
+    var el = document.getElementById(id);
+    if (el) { el.parentNode.removeChild(el); }
+    this._bgStyleEl = null;
+  }
+
+  /** 创建自定义字幕覆盖层并监听 cuechange */
+  _createCueOverlay(track) {
+    this._removeCueOverlay();
+    var container = this.player.container;
+    if (!container) return;
+    var videoWrap = container.querySelector('.wplayer-video-wrap');
+    if (!videoWrap) return;
+    var overlay = document.createElement('div');
+    overlay.className = 'wplayer-subtitle-cue-overlay';
+    var inner = document.createElement('div');
+    inner.className = 'wplayer-subtitle-cue-inner';
+    if (this.subtitleBgEnabled) {
+      inner.classList.add('wplayer-subtitle-cue-inner-bg');
+    }
+    overlay.appendChild(inner);
+    videoWrap.appendChild(overlay);
+    this._cueOverlay = overlay;
+    this._cueOverlayInner = inner;
+
+    var self = this;
+    this._cueChangeHandler = function () {
+      self._updateCueOverlayText(track);
+    };
+    track.oncuechange = this._cueChangeHandler;
+    // 立即渲染当前激活的字幕
+    this._updateCueOverlayText(track);
+  }
+
+  _updateCueOverlayText(track) {
+    if (!this._cueOverlay || !this._cueOverlayInner) return;
+    var cues = track.activeCues;
+    if (cues && cues.length > 0) {
+      var texts = [];
+      for (var i = 0; i < cues.length; i++) {
+        texts.push(cues[i].text);
+      }
+      this._cueOverlayInner.textContent = texts.join('\n');
+      this._cueOverlay.style.display = 'block';
+    } else {
+      this._cueOverlay.style.display = 'none';
+    }
+  }
+
+  _removeCueOverlay() {
+    if (this._cueOverlay) {
+      if (this._cueOverlay.parentNode) {
+        this._cueOverlay.parentNode.removeChild(this._cueOverlay);
+      }
+      this._cueOverlay = null;
+      this._cueOverlayInner = null;
+    }
+    // 清理 oncuechange
+    if (this._cueChangeHandler) {
+      var video = this.player && this.player.video;
+      if (video) {
+        var tracks = this.collectSubtitleTracks(video);
+        for (var i = 0; i < tracks.length; i++) {
+          if (tracks[i].oncuechange === this._cueChangeHandler) {
+            tracks[i].oncuechange = null;
+          }
+        }
+      }
+      this._cueChangeHandler = null;
+    }
   }
 
   onSettingsHide() {
@@ -324,6 +433,13 @@ class Subtitle {
     bgDiv.appendChild(bgLab);
     bgDiv.appendChild(toggleDiv);
     this.subtitlesList.appendChild(bgDiv);
+
+    // Prevent label→input synthetic click which double-toggles on some browsers.
+    // The delegated click on subtitlesList handles state; native label activation
+    // would fire a second click on the hidden checkbox, toggling bgEnabled back.
+    toggleLabel.addEventListener('click', (e) => {
+      e.preventDefault();
+    });
   }
 
   syncListActive() {
@@ -351,12 +467,14 @@ class Subtitle {
       tracks: JSON.stringify(tracks.map((t, i) => ({ i, label: t.label, lang: t.language, mode: t.mode, kind: t.kind }))),
     });
     if (!tracks.length) {
+      this._removeCueOverlay();
       this.player.events.trigger('subtitle_hide');
       this.player.events.trigger('subtitle_change', { visible: false, trackIndex: -1 });
       return;
     }
     if (!this.available || this.selectedTrackIndex < 0) {
       tracks.forEach((t) => { t.mode = 'disabled'; });
+      this._removeCueOverlay();
       this.player.events.trigger('subtitle_hide');
       this.player.events.trigger('subtitle_change', { visible: false, trackIndex: -1 });
       return;
@@ -364,9 +482,11 @@ class Subtitle {
     let idx = Math.min(this.selectedTrackIndex, tracks.length - 1);
     if (idx < 0) idx = 0;
     this.selectedTrackIndex = idx;
+    // 覆盖层方案：track 始终 hidden（禁止原生渲染），通过覆盖层显示字幕
     tracks.forEach((t, i) => {
-      t.mode = i === idx ? 'showing' : 'disabled';
+      t.mode = i === idx ? 'hidden' : 'disabled';
     });
+    this._createCueOverlay(tracks[idx]);
     console.info('[Alnitak:subtitle:debug] applySubtitleState:after', {
       selectedIndex: idx,
       tracks: JSON.stringify(tracks.map((t, i) => ({ i, label: t.label, lang: t.language, mode: t.mode }))),
@@ -381,6 +501,8 @@ class Subtitle {
 
   setup(video) {
     if (!video) return;
+
+    this._removeCueOverlay();
 
     const sid = ++this.setupSessionId;
     console.info('[Alnitak:subtitle:wplayer] setup:start', {
@@ -472,14 +594,15 @@ class Subtitle {
       if (protectSid !== sid) return;
       if (protectCount++ > 10) return;
       var cur = self.collectSubtitleTracks(video);
+      var expectMode = 'hidden';
       var needsReapply = cur.some(function (ct, ci) {
-        if (ci === protectIdx) return ct.mode !== 'showing';
+        if (ci === protectIdx) return ct.mode !== expectMode;
         return ct.mode !== 'disabled';
       });
       if (needsReapply) {
         cur.forEach(function (ct) { ct.mode = 'disabled'; });
         requestAnimationFrame(function () {
-          if (cur[protectIdx]) cur[protectIdx].mode = 'showing';
+          if (cur[protectIdx]) cur[protectIdx].mode = expectMode;
         });
       }
       setTimeout(protectModes, 200);

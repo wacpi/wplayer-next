@@ -30,12 +30,41 @@
   }
 
   video.wplayer-video-current::cue {
-    background-color: var(--wplayer-subtitle-bg, rgba(0, 0, 0, 0.72));
     color: var(--wplayer-subtitle-color, #fff);
     font-size: var(--wplayer-subtitle-font-size, 95%);
     font-weight: var(--wplayer-subtitle-font-weight, 600);
     font-family: var(--wplayer-subtitle-font-family, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'PingFang TC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif);
     text-shadow: var(--wplayer-subtitle-text-shadow, 0 0 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.75), 1px 0 1px rgba(0, 0, 0, 0.8), -1px 0 1px rgba(0, 0, 0, 0.8), 0 1px 1px rgba(0, 0, 0, 0.8), 0 -1px 1px rgba(0, 0, 0, 0.8));
+    /* 背景由 JS 动态注入 <style> 控制（字幕背景开关 ON 时半透明，OFF 时透明），覆盖层方案降级备选 */
+  }
+
+  /* 字幕覆盖层：全宽定位容器 + 居中 */
+  .wplayer-subtitle-cue-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 4px 24px 24px;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  /* 字幕内层：inline-block 仅包裹文字内容，背景仅覆盖文字范围 */
+  .wplayer-subtitle-cue-inner {
+    display: inline-block;
+    border-radius: 4px;
+    padding: 0 6px;
+    white-space: pre-wrap;
+    line-height: 1.35;
+    color: var(--wplayer-subtitle-color, #fff);
+    font-size: var(--wplayer-subtitle-font-size, 32px);
+    font-weight: var(--wplayer-subtitle-font-weight, 600);
+    font-family: var(--wplayer-subtitle-font-family, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'PingFang TC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif);
+    text-shadow: var(--wplayer-subtitle-text-shadow, 0 0 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.75), 1px 0 1px rgba(0, 0, 0, 0.8), -1px 0 1px rgba(0, 0, 0, 0.8), 0 1px 1px rgba(0, 0, 0, 0.8), 0 -1px 1px rgba(0, 0, 0, 0.8));
+  }
+
+  .wplayer-subtitle-cue-inner-bg {
+    background: rgba(0, 0, 0, 0.72);
   }
 
   .wplayer-video-prepare {
