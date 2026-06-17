@@ -489,9 +489,9 @@
 
       .wplayer-setting-box {
         position: absolute;
-        right: -55px;
+        left: 50%;
+        transform: translateX(-50%) scale(0);
         bottom: 50px;
-        transform: scale(0);
         width: 150px;
         border-radius: 2px;
         background: rgba(28, 28, 28, 0.9);
@@ -509,7 +509,7 @@
         }
 
         &.wplayer-setting-box-open {
-          transform: scale(1);
+          transform: translateX(-50%) scale(1);
         }
 
         &.wplayer-setting-box-narrow {
@@ -739,7 +739,8 @@
           display: none;
           position: absolute;
           bottom: 26px;
-          right: -10px;
+          left: 50%;
+          transform: translateX(-50%);
           width: 70px;
           padding-bottom: 26px;
           transition: all .3s ease-in-out;
@@ -935,7 +936,8 @@
           display: none;
           position: absolute;
           bottom: 26px;
-          left: -22px;
+          left: 50%;
+          transform: translateX(-50%);
           width: 80px;
           padding-bottom: 24px;
           transition: all .3s ease-in-out;
